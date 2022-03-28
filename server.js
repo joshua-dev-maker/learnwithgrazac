@@ -2,7 +2,7 @@
 const express = require("express");
 const userRoutes = require("./src/routes/user.route");
 const ejs = require("ejs");
-const passportSetup = require("./src/utils/passport-setup");
+const passportSetup = require("./src/service/passport-setup");
 require("dotenv").config();
 
 const connectDB = require("./src/db/connect.db");
