@@ -225,3 +225,49 @@ exports.updateUserPassword = async (req, res, next) => {
     });
   }
 };
+// An endpoint for users payment with flutterwave
+exports.payment = async (req, res, next) => {
+  try {
+    console.log("here...........................");
+    console.log(process.env.payStack_secret_key);
+    const data = await axios({
+      url: "https://api.paystack.co/transaction/initialize",
+      method: "post",
+      headers: {
+        Authorization: `Bearer ${process.env.payStack_secret_key}`,
+      },
+      data: {
+        email: "temitopejulius99@gmail.com",
+        amount: "4000",
+      },
+    });
+    // console.log(data);
+    return successResMsg(res, 200, {
+      data: data.data.data,
+    });
+  } catch (error) {
+    // console.log(error);
+    message: error;
+  }
+};
+// An endpoint verifying payment from users
+exports.paymentVerification = async (req, res, next) => {
+  try {
+    const { reference } = req.query;
+    // console.log("here...........................");
+    // console.log(process.env.payStack_secret_key);
+    const data = await axios({
+      url: `https://api.paystack.co/transaction/verify/${reference}`,
+      method: "get",
+      headers: {
+        Authorization: `Bearer ${process.env.payStack_secret_key}`,
+      },
+    });
+    console.log(data);
+    return successResMsg(res, 200, {
+      data: data.data.data.gateway_response,
+    });
+  } catch (error) {
+    message: error;
+  }
+};

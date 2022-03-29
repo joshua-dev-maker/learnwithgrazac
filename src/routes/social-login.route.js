@@ -12,7 +12,7 @@ router.get("/login", (req, res) => {
 
 router.get("/logout", (req, res) => {
   req.logOut();
-  res.redirect("/login");
+  res.redirect("login");
 });
 
 //auth

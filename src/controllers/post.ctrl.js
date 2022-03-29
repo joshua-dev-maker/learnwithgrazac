@@ -1,49 +1,32 @@
-const Product = require("../model/product.model");
+const Post = require("../models/post.model");
 const { successResMsg, errorResMsg } = require("../utils/appResponse");
 const AppError = require("../utils/appError");
 
-//Admin creating post
+//An endpoint for creating post
 exports.CreatePost = async (req, res, next) => {
   try {
-    const { title, body ,attachment } = req.body;
-    if (!productName || !category || !Price) {
-      return next(new AppError("Please fill the required field", 401));
-    }
-    const newProduct = await Product.create({
-      productName,
-      category,
-      farmDiv,
-      Price,
+    const { title, body, attachment } = req.body;
+    const validatedData = await validatePost.validateAsync(req.body);
+    const newPost = await Post.create({
+      title,
+      body,
+      attachment,
     });
     return successResMsg(res, 201, {
-      message: "Product created successfully",
-      newProduct,
+      message: "Post successfully created",
+      newPost,
     });
   } catch (error) {
     return errorResMsg(res, 500, { message: error.message });
   }
 };
-// users viewing products by categories
-exports.viewCategory = async (req, res, next) => {
+// viewing all post in a limit of 10
+exports.viewAllPost = async (req, res, next) => {
   try {
-    const { category } = req.params;
-    const viewCategory = await Product.find({ category });
+    const viewAllPost = await Post.find();
     return successResMsg(res, 200, {
       message: "success",
-      viewCategory,
-    });
-  } catch (error) {
-    return errorResMsg(res, 500, { message: error.message });
-  }
-};
-// viewing all farm division results
-exports.FarmDivision = async (req, res, next) => {
-  try {
-    const { farmDiv } = req.params;
-    const FarmDivision = await Product.find({ farmDiv });
-    return successResMsg(res, 200, {
-      message: "success",
-      FarmDivision,
+      viewAllPost,
     });
   } catch (error) {
     return errorResMsg(res, 500, { message: error.message });
