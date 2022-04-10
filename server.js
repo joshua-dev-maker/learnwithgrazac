@@ -1,14 +1,18 @@
 // creating an http server
 const express = require("express");
 const app = express();
-const userRoutes = require("./src/routes/user.route");
 const socialRoute = require("./src/routes/social-login.route");
 const ejs = require("ejs");
 const passportSetup = require("./src/service/passport-setup");
 const session = require("express-session");
 require("dotenv").config();
-const connectDB = require("./src/db/connect.db");
+const { connectDB } = require("./src/db/connect.db");
+const dataBase = require("./src/db/mySQLcon.db");
 const passport = require("passport");
+const AdminRouter = require("./src/routes/admin.route");
+const UserRouter = require("./src/routes/user.route");
+const PostRouter = require("./src/routes/post.route");
+const CommentRouter = require("./src/routes/comment.route");
 
 // console.log(passport);
 
@@ -18,6 +22,7 @@ app.use(express.json());
 
 const PORT = process.env.PORT;
 connectDB();
+dataBase;
 // set view engine
 
 app.use(
@@ -44,11 +49,11 @@ app.get("/", (req, res) => {
 });
 
 // using the router for each model
-// app.use("/api/v1", userRoutes);
+app.use("/api/v1", UserRouter);
 app.use("/auth", socialRoute);
-// app.use("/api/v1", AdminRouter);
-// app.use("/api/v1", ProductRouter);
-// app.use("/api/v1", OrderRouter);
+app.use("/api/v1", AdminRouter);
+app.use("/api/v1", PostRouter);
+app.use("/api/v1", CommentRouter);
 
 app.listen(PORT, () => {
   console.log(`server listening on http://localhost:${PORT}`);

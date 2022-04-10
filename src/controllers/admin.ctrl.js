@@ -2,7 +2,7 @@ const Admin = require("../model/Admin.model");
 const bcrypt = require("bcrypt");
 const jwt = require("jsonwebtoken");
 const nodemailer = require("nodemailer");
-const { validateReg, validateLogin} = require("../middlewares/joiValidation");
+const { validateReg, validateLogin } = require("../middlewares/joiValidation");
 require("dotenv").config();
 const User_Token = process.env.User_Token;
 const { successResMsg, errorResMsg } = require("../utils/appResponse");
@@ -38,15 +38,15 @@ exports.addAdmin = async (req, res, next) => {
       validatedData.password.includes(lastName) ||
       validatedData.password.includes(phoneNumber) ||
       validatedData.password.includes(email)
-    ){
+    ) {
       return next(
         new AppError("password too weak" || "password not secured", 401)
       );
     }
     const hashPassword = await bcrypt.hash(validatedData.password, 10);
     const newAdmin = await Admin.create({
-      firstName : validatedData.firstName,
-      lastName : validatedData.lastName,
+      firstName: validatedData.firstName,
+      lastName: validatedData.lastName,
       phoneNumber: validatedData.phoneNumber,
       email: validatedData.email,
       password: hashPassword,
@@ -62,39 +62,6 @@ exports.addAdmin = async (req, res, next) => {
       message: `Hi ${firstName.toUpperCase()},Your account has been created successfully.
       Please check your email for verification.`,
       newAdmin,
-    });
-    } catch (error) {
-    return errorResMsg(res, 500, { message: error.message });
-  }
-};
-// login endpoint for Admin
-exports.login = async (req, res, next) => {
-  try {
-    // const { email, password } = req.body;
-    // const emailExist = await Admin.findOne({ email });
-        const validateAccess = await validateLogin.validateAsync(req.body);
-    const emailExist = await Admin.findOne({ email:validateAccess.email });
-    if (!emailExist) {
-      return next(new AppError("Email does not exist please Signup", 401));
-    }
-     if (emailExist == null) {
-       return next(new AppError("please provide a valid email address", 403));
-     }
-    let passwordExist = await bcrypt.compare(validateAccess.password, emailExist.password);
-    if (!passwordExist) {
-      return next(new AppError("Invalid details" || "password incorrect", 401));
-    }
-    const loginPayload = {
-      id: emailExist.id,
-      email: emailExist.email,
-      password: emailExist.password,
-      role: emailExist.role,
-    };
-    const token = await jwt.sign(loginPayload, User_Token, { expiresIn: "2h" });
-    return successResMsg(res, 201, {
-      message: `Hi ${emailExists.lastName.toUpperCase()} 
-      ${emailExists.firstName.toUpperCase()}, Welcome Back`,
-      token,
     });
   } catch (error) {
     return errorResMsg(res, 500, { message: error.message });
@@ -116,7 +83,8 @@ exports.verifyEmail = async (req, res, next) => {
     Admin.isVerified = true;
     Admin.save();
     return res.status(201).json({
-      message: `Hi ${decodedToken.firstName}, Your account has been verified, You can now proceed to login`,
+      message: `Hi ${decodedToken.firstName}, Your account has been verified, 
+      You can now proceed to login`,
     });
   } catch (error) {
     return res.status(500).json({
@@ -124,7 +92,43 @@ exports.verifyEmail = async (req, res, next) => {
     });
   }
 };
-
+// login endpoint for Admin
+exports.login = async (req, res, next) => {
+  try {
+    // const { email, password } = req.body;
+    // const emailExist = await Admin.findOne({ email });
+    const validateAccess = await validateLogin.validateAsync(req.body);
+    const emailExist = await Admin.findOne({ email: validateAccess.email });
+    if (!emailExist) {
+      return next(new AppError("Email does not exist please Signup", 401));
+    }
+    if (emailExist == null) {
+      return next(new AppError("please provide a valid email address", 403));
+    }
+    let passwordExist = await bcrypt.compare(
+      validateAccess.password,
+      emailExist.password
+    );
+    if (!passwordExist) {
+      return next(new AppError("Invalid details" || "password incorrect", 401));
+    }
+    const loginPayload = {
+      id: emailExist.id,
+      email: emailExist.email,
+      password: emailExist.password,
+      role: emailExist.role,
+    };
+    const token = await jwt.sign(loginPayload, User_Token, { expiresIn: "2h" });
+    return successResMsg(res, 201, {
+      message: `Hi ${emailExists.lastName.toUpperCase()} 
+      ${emailExists.firstName.toUpperCase()}, Welcome Back`,
+      token,
+    });
+  } catch (error) {
+    return errorResMsg(res, 500, { message: error.message });
+  }
+};
+// An endpoint for Admin forgte password link
 exports.forgetPasswordLink = async (req, res, next) => {
   try {
     const { email } = req.body;
@@ -168,7 +172,7 @@ exports.resetPassword = async (req, res, next) => {
       return next(new AppError("Password do not match.", 404));
     }
     const hashPassword = await bcrypt.hash(confirmPassword, 10);
-    const updatedPassword = await Admin.updateOne(
+    const resettedPassword = await Admin.updateOne(
       { email },
       { password: hashPassword },
       {
@@ -177,7 +181,7 @@ exports.resetPassword = async (req, res, next) => {
     );
     return successResMsg(res, 200, {
       message: `Password has been changed successfully.`,
-      updatedPassword,
+      resettedPassword,
     });
   } catch (error) {
     return errorResMsg(res, 500, { message: error.message });
@@ -208,7 +212,7 @@ exports.updatePassword = async (req, res, next) => {
       return next(new AppError(`Password do not match.`, 400));
     }
     const hashPassword = await bcrypt.hash(confirmPassword, 10);
-    const resetPassword = await User.updateOne(
+    const updatedPassword = await User.updateOne(
       { email },
       { password: hashPassword }
     );
@@ -221,4 +225,3 @@ exports.updatePassword = async (req, res, next) => {
     });
   }
 };
-

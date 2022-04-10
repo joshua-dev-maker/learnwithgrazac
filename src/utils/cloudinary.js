@@ -1,9 +1,22 @@
-const cloudinary = require("cloudinary").v2;
-
-cloudinary.config({
-  cloud_name: process.env.cloudinary_Name,
-  api_key: process.env.cloudinary_API_KEY,
-  api_secret: process.env.cloudinary_API_SECRET,
+const cloudinary = require("cloudinary");
+const dotenv = require("dotenv").config();
+const express = require("express");
+cloudinary.v2.config({
+  cloud_name: process.env.CLOUDINARY_NAME,
+  api_key: process.env.CLOUDINARY_API_KEY,
+  api_secret: process.env.CLOUDINARY_API_SECRET,
 });
 
-module.exports = cloudinary;
+const cloudinaryUploadMethod = async (file) => {
+  return new Promise((resolve, reject) => {
+    cloudinary.uploader.upload(file, (err, response) => {
+      if (err) {
+        reject({ err });
+      }
+      resolve({
+        res: response.secure_url,
+      });
+    });
+  });
+};
+module.exports = cloudinaryUploadMethod;

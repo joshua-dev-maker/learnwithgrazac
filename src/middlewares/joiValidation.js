@@ -18,14 +18,12 @@ const validateLogin = joi.object({
   password: joi.string().pattern(new RegExp("^[a-zA-Z0-9]{3,30}$")).min(8),
 });
 
-const validateOrder = joi.object({
-  farm_order: joi.string().required(),
-  User: joi.string().required(),
-  qty: joi.number().required().min(1).max(10),
-  totalamount: joi.number().required(),
-  delivery: joi.string().required(),
+const validatePost = joi.object({
+  title: joi.string().required(),
+  body: joi.string().required(),
+  attachment: joi.string(),
 });
-const validateProduct = joi.object({
+const validateComment = joi.object({
   productName: joi.string().required(),
   category: joi.string().required(),
   farmDiv: joi.string().required(),
@@ -34,6 +32,6 @@ const validateProduct = joi.object({
 module.exports = {
   validateReg,
   validateLogin,
-  validateOrder,
-  validateProduct,
+  validatePost,
+  validateComment,
 };

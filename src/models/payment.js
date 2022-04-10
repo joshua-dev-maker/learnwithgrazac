@@ -2,8 +2,8 @@ const mongoose = require("mongoose");
 
 const Schema = mongoose.Schema;
 
-//craeting a post
-const PostSchema = new Schema(
+//signup for new admin
+const PaymentSchema = new Schema(
   {
     title: {
       type: String,
@@ -21,6 +21,6 @@ const PostSchema = new Schema(
 );
 //
 
-const PostModel = mongoose.model("Post", PostSchema);
+const PaymentModel = mongoose.model("Payment", PaymentSchema);
 
-module.exports = PostModel;
+module.exports = PaymentModel;

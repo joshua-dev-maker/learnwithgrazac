@@ -2,8 +2,8 @@ const User = require("../models/user.model");
 const bcrypt = require("bcrypt");
 const { sendMail } = require("../db/sendmail");
 const passport = require("passport");
+const axios = require("axios");
 require("dotenv").config();
-
 const { successResMsg, errorResMsg } = require("../utils/appResponse");
 const AppError = require("../utils/appError");
 const { validateReg, validateLogin } = require("../middlewares/joiValidation");
@@ -14,7 +14,7 @@ exports.register = async (req, res, next) => {
     const { firstName, lastName, phoneNumber, email, password, role } =
       req.body;
     // a check to ensure all fields are inputted correctly
-    const validatedData = await validateUserReg.validateAsync(req.body);
+    const validatedData = await validateReg.validateAsync(req.body);
     //check if the useremail already exists
     const emailExists = await User.findOne({ email: validatedData.email });
     if (emailExists)
@@ -41,14 +41,10 @@ exports.register = async (req, res, next) => {
 
     const hashPassword = await bcrypt.hash(validatedData.password, 10);
     // console.log(hashPassword)
-    const newUsers = await User.create({
-      firstName: validatedData.firstName,
-      lastName: validatedData.lastName,
-      phoneNumber: validatedData.phoneNumber,
-      email: validatedData.email,
-      password: hashPassword,
-      role,
-    });
+    const newUsers = await db.execute(
+      "INSERT INTO users (firstName, lastName,  email, phoneNumber, password) VALUES ( ?, ?, ?, ?, ?)",
+      [firstName, lastName, email, phoneNumber, hashPassword]
+    );
     // verification of userEmail
     let mailOptions = {
       to: newUsers.email,
@@ -66,6 +62,31 @@ exports.register = async (req, res, next) => {
     return errorResMsg(res, 500, { message: error.message });
   }
 };
+// An endpoint used to verify users account
+exports.verifyUserEmail = async (req, res, next) => {
+  try {
+    const { token } = req.headers;
+    const secret_key = process.env.JWT_TOKEN;
+    const decodedToken = await jwt.verify(token, secret_key);
+    const User = await db.execute("SELECT * FROM users WHERE email =?", []);
+    const userFound = users[0].find((user) => User.email === email);
+    if (userFound) {
+      return successResMsg(res, 200, {
+        message: "user verified already",
+      });
+    }
+    User.isVerified = true;
+    User.save();
+    return res.status(201).json({
+      message: `Hi ${decodedToken.firstName}, Your account has been verified, You can now proceed to login`,
+    });
+  } catch (error) {
+    return res.status(500).json({
+      message: `${error.message}, Try again later.`,
+    });
+  }
+};
+
 // login endpoint for users
 exports.login = async (req, res, next) => {
   try {
@@ -88,14 +109,17 @@ exports.login = async (req, res, next) => {
         new AppError("Login Unsuccessful, please verify details", 401)
       );
     }
-    //creating a login payload
+    //creating a login payload for users
     const loginPayload = {
       id: emailExist.id,
       email: emailExist.email,
-      password: emailExist.password,
       role: emailExist.role,
+      isPaid: emailExist.isPaid,
     };
-    const token = await jwt.sign(loginPayload, User_Token, { expiresIn: "2h" });
+
+    const secret_key = process.env.JWT_TOKEN;
+    const token = await jwt.sign(loginPayload, secret_key, { expiresIn: "2h" });
+    console.log(await jwt.verify(token, secret_key));
     return successResMsg(res, 200, {
       message: `Hi ${emailExists.lastName.toUpperCase()} 
       ${emailExists.firstName.toUpperCase()}, Welcome Back`,
@@ -105,31 +129,7 @@ exports.login = async (req, res, next) => {
     return errorResMsg(res, 500, { message: error.message });
   }
 };
-// An endpoint used to verify users account
-exports.verifyUserEmail = async (req, res, next) => {
-  try {
-    const { token } = req.query;
-    const secret_key = process.env.JWT_TOKEN;
-    const decodedToken = await jwt.verify(token, secret_key);
-    const User = await User.findOne({ email: decodedToken.email }).select(
-      "isVerified"
-    );
-    if (User.isVerified) {
-      return successResMsg(res, 200, {
-        message: "user verified already",
-      });
-    }
-    User.isVerified = true;
-    User.save();
-    return res.status(201).json({
-      message: `Hi ${decodedToken.firstName}, Your account has been verified, You can now proceed to login`,
-    });
-  } catch (error) {
-    return res.status(500).json({
-      message: `${error.message}, Try again later.`,
-    });
-  }
-};
+
 exports.forgetUserPasswordLink = async (req, res, next) => {
   try {
     const { email } = req.body;
@@ -225,49 +225,38 @@ exports.updateUserPassword = async (req, res, next) => {
     });
   }
 };
-// An endpoint for users payment with flutterwave
+
 exports.payment = async (req, res, next) => {
   try {
-    console.log("here...........................");
-    console.log(process.env.payStack_secret_key);
     const data = await axios({
-      url: "https://api.paystack.co/transaction/initialize",
       method: "post",
+      url: "https://api.flutterwave.com/v3/payments",
       headers: {
-        Authorization: `Bearer ${process.env.payStack_secret_key}`,
+        Authorization: `Bearer ${process.env.FLUT_SEC_KEY}`,
       },
       data: {
-        email: "temitopejulius99@gmail.com",
-        amount: "4000",
+        tx_ref: "hooli-tx-1920bbtytty",
+        amount: "100",
+        currency: "NGN",
+        redirect_url: "https://localhost:6111/",
+        customer: {
+          email: "ojojoshuat@gmail.com",
+          phonenumber: "0812344528",
+          name: "Yemi Desola",
+        },
       },
     });
-    // console.log(data);
-    return successResMsg(res, 200, {
-      data: data.data.data,
+    console.log("data:", data.data);
+    console.log(data.data.status);
+    if (!data.data.status || data.data.status !== "success") {
+      return res.status(404).json({
+        messasge: "payment Unsuccessful",
+      });
+    }
+    return res.status(200).json({
+      data: data.data,
     });
   } catch (error) {
-    // console.log(error);
-    message: error;
-  }
-};
-// An endpoint verifying payment from users
-exports.paymentVerification = async (req, res, next) => {
-  try {
-    const { reference } = req.query;
-    // console.log("here...........................");
-    // console.log(process.env.payStack_secret_key);
-    const data = await axios({
-      url: `https://api.paystack.co/transaction/verify/${reference}`,
-      method: "get",
-      headers: {
-        Authorization: `Bearer ${process.env.payStack_secret_key}`,
-      },
-    });
-    console.log(data);
-    return successResMsg(res, 200, {
-      data: data.data.data.gateway_response,
-    });
-  } catch (error) {
-    message: error;
+    console.log(error);
   }
 };

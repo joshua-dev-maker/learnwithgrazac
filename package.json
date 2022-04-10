@@ -6,22 +6,32 @@
   "author": "joshua Ojo ",
   "license": "MIT",
   "scripts": {
+    "pg:init": "pg_ctl init -D data",
+    "pg:start": "pg_ctl -D data start",
+    "pg:createdb": "createdb -h 127.0.0.1 app",
+    "pg:stop": "pg_ctl -D data stop",
     "dev": "supervisor server.js"
   },
   "dependencies": {
+    "axios": "^0.26.1",
     "bcrypt": "^5.0.1",
     "cloudinary": "^1.29.0",
     "dotenv": "^16.0.0",
     "ejs": "^3.1.6",
     "express": "^4.17.3",
     "express-session": "^1.17.2",
+    "got": "^12.0.3",
     "joi": "^17.6.0",
+    "jsonwebtoken": "^8.5.1",
     "mongoose": "^6.2.8",
     "multer": "^1.4.4",
+    "mysql": "^2.18.1",
+    "mysql2": "^2.3.3",
     "nodemailer": "^6.7.3",
     "nodemon": "^2.0.15",
     "passport": "^0.5.2",
     "passport-github": "^1.1.0",
+    "pg": "^8.7.3",
     "supervisor": "^0.12.0"
   }
 }
