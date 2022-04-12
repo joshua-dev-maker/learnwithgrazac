@@ -27,6 +27,7 @@ const database = mysql.createConnection({
   user: process.env.mysql_username,
   password: process.env.mysql_password,
   database: "learngrazac",
+  port: process.env.mysql_port,
 });
 
 database.connect(function (err) {
