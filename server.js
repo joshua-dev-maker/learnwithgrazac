@@ -13,6 +13,7 @@ const AdminRouter = require("./src/routes/admin.route");
 const UserRouter = require("./src/routes/user.route");
 const PostRouter = require("./src/routes/post.route");
 const CommentRouter = require("./src/routes/comment.route");
+const pool = require("./src/db/postgresql");
 
 // console.log(passport);
 
@@ -21,8 +22,9 @@ const CommentRouter = require("./src/routes/comment.route");
 app.use(express.json());
 
 const PORT = process.env.PORT;
-connectDB();
+// connectDB();
 dataBase;
+pool;
 // set view engine
 
 app.use(

@@ -5,7 +5,8 @@ const Schema = mongoose.Schema;
 //craeting a post
 const PostSchema = new Schema(
   {
-    title: {
+    user_id: {},
+    caption: {
       type: String,
       require: true,
     },

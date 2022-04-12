@@ -1,9 +1,10 @@
 const User = require("../models/user.model");
 const bcrypt = require("bcrypt");
-const { sendMail } = require("../db/sendmail");
+const { sendMail } = require("../service/sendmail");
 const passport = require("passport");
 const axios = require("axios");
 require("dotenv").config();
+const db = require("../db/mySQLcon.db");
 const { successResMsg, errorResMsg } = require("../utils/appResponse");
 const AppError = require("../utils/appError");
 const { validateReg, validateLogin } = require("../middlewares/joiValidation");
@@ -16,9 +17,15 @@ exports.register = async (req, res, next) => {
     // a check to ensure all fields are inputted correctly
     const validatedData = await validateReg.validateAsync(req.body);
     //check if the useremail already exists
-    const emailExists = await User.findOne({ email: validatedData.email });
-    if (emailExists)
-      return next(new AppError("Email exist!..please login", 401));
+    const [user] = await db.execute(
+      "SELECT `email` FROM `users` WHERE `email` = ?",
+      [{ email: validatedData.email }]
+    );
+    if (user.length > 0) {
+      return res.status(400).json({
+        message: "email already exist,please login",
+      });
+    }
     // a check for password length
     if (password.length < 8) {
       return next(
@@ -38,25 +45,35 @@ exports.register = async (req, res, next) => {
         new AppError("password too weak" || "password not secured", 401)
       );
     }
-
+    // hashing the user password
     const hashPassword = await bcrypt.hash(validatedData.password, 10);
     // console.log(hashPassword)
-    const newUsers = await db.execute(
+    const [newUser] = await db.execute(
       "INSERT INTO users (firstName, lastName,  email, phoneNumber, password) VALUES ( ?, ?, ?, ?, ?)",
       [firstName, lastName, email, phoneNumber, hashPassword]
     );
+    // creating a payload
+    const userData = {
+      id: newUser.id,
+      firstName: req.body.firstName,
+      lastName: req.body.lastName,
+      isVerified: req.body.isVerified,
+    };
+    const token = await jwt.sign(userData, process.env.User_Token, {
+      expiresIn: "2h",
+    });
     // verification of userEmail
     let mailOptions = {
-      to: newUsers.email,
+      to: newUser.email,
       subject: "Verify Email",
-      text: `Hi ${firstName},Pls verify your email`,
+      text: `Hi ${firstName},Pls verify your email. ${token}`,
     };
 
     await sendMail(mailOptions);
     return successResMsg(res, 201, {
       message: `Hi ${firstName.toUpperCase()},Your account has been created successfully.
       Please check your email for verification.`,
-      newUsers,
+      token,
     });
   } catch (error) {
     return errorResMsg(res, 500, { message: error.message });
@@ -66,17 +83,22 @@ exports.register = async (req, res, next) => {
 exports.verifyUserEmail = async (req, res, next) => {
   try {
     const { token } = req.headers;
-    const secret_key = process.env.JWT_TOKEN;
+    const secret_key = process.env.User_Token;
     const decodedToken = await jwt.verify(token, secret_key);
-    const User = await db.execute("SELECT * FROM users WHERE email =?", []);
-    const userFound = users[0].find((user) => User.email === email);
-    if (userFound) {
+    const [user] = await db.execute("SELECT * FROM users WHERE email =?", [
+      {
+        email: decodedToken.email,
+      },
+    ]);
+    if (user.verified) {
       return successResMsg(res, 200, {
         message: "user verified already",
       });
     }
-    User.isVerified = true;
-    User.save();
+
+    await db.execute(
+      "UPDATE users SET isVerified = true WHERE isVerified = false"
+    );
     return res.status(201).json({
       message: `Hi ${decodedToken.firstName}, Your account has been verified, You can now proceed to login`,
     });
@@ -90,40 +112,40 @@ exports.verifyUserEmail = async (req, res, next) => {
 // login endpoint for users
 exports.login = async (req, res, next) => {
   try {
-    const validatedLogin = await validateLogin.validateAsync(req.body);
-    const emailExist = await User.findOne({ email: validatedLogin.email });
-    if (!emailExist) {
-      return next(
-        new AppError("email does not exists.please signup" || "not found", 401)
-      );
+    const { email, password } = req.body;
+    await validateLogin.validateAsync(req.body);
+    if (email && password) {
+      const [user] = await db.execute("SELECT * FROM user WHERE email =?", [
+        email,
+      ]);
+      emailexist = [user];
+      if (emailexist.length === 0) {
+        return res.status(400).json({
+          message: "email address not found.",
+        });
+      }
+      const passMatch = await bcrypt.compareSync(password, user[0].password);
+      if (!passMatch) {
+        return res.status(400).json({ message: "incorrect password" });
+      }
+      if (emailexist[0].isVerified === 0) {
+        return res.status(400).json({
+          message: "Unverified account.",
+        });
+      }
     }
-    if (emailExist == null) {
-      return next(new AppError("please provide a valid email address", 403));
-    }
-    let passwordExist = await bcrypt.compare(
-      validatedLogin.password,
-      emailExist.password
-    );
-    if (!passwordExist) {
-      return next(
-        new AppError("Login Unsuccessful, please verify details", 401)
-      );
-    }
-    //creating a login payload for users
     const loginPayload = {
-      id: emailExist.id,
-      email: emailExist.email,
-      role: emailExist.role,
-      isPaid: emailExist.isPaid,
+      email: emailexist[0][0].email,
+      phoneNumber: emailexist[0][0].phoneNumber,
+      role: emailexist[0][0].role,
     };
-
-    const secret_key = process.env.JWT_TOKEN;
-    const token = await jwt.sign(loginPayload, secret_key, { expiresIn: "2h" });
-    console.log(await jwt.verify(token, secret_key));
-    return successResMsg(res, 200, {
+    const loginToken = await jwt.sign(loginPayload, User_Token, {
+      expiresIn: "1h",
+    });
+    return successResMsg(res, 201, {
       message: `Hi ${emailExists.lastName.toUpperCase()} 
       ${emailExists.firstName.toUpperCase()}, Welcome Back`,
-      token,
+      loginToken,
     });
   } catch (error) {
     return errorResMsg(res, 500, { message: error.message });
@@ -133,26 +155,35 @@ exports.login = async (req, res, next) => {
 exports.forgetUserPasswordLink = async (req, res, next) => {
   try {
     const { email } = req.body;
-    const userEmail = await User.findOne({ email });
-    if (!userEmail) {
-      return next(new AppError("email not found", 404));
+    const [user] = await db.execute("SELECT * FROM user WHERE email =?", [
+      email,
+    ]);
+    if (user.length === 0) {
+      return res.status(400).json({
+        message: "email address not found.",
+      });
     }
-    const data = {
+    //creating a payload
+    const verificationdata = {
       id: userEmail._id,
       email: userEmail.email,
       role: userEmail.role,
     };
     // getting a secret token
     const secret_key = process.env.User_Token;
-    const token = await jwt.sign(data, secret_key, { expiresIn: "1hr" });
+    const token = await jwt.sign(verificationdata, secret_key, {
+      expiresIn: "1hr",
+    });
+    const decodedToken = await jwt.verify(token, secret_key);
     let mailOptions = {
       to: userEmail.email,
       subject: "Reset Password",
-      text: `Hi ${userEmail.firstName}, Reset your password with the link below.${token}`,
+      text: `Hi ${user[0].firstName}, Reset your password with the link below.${token}`,
     };
     await sendMail(mailOptions);
     return successResMsg(res, 200, {
-      message: `Hi ${userEmail.firstName},reset password.`,
+      message: `Hi ${user[0].firstName},reset password.`,
+      decodedToken,
     });
   } catch (error) {
     return errorResMsg(res, 500, { message: error.message });
@@ -172,13 +203,10 @@ exports.resetUserPassword = async (req, res, next) => {
     if (newPassword !== confirmPassword) {
       return next(new AppError("Password do not match.", 404));
     }
-    const hashPassword = await bcrypt.hash(confirmPassword, 10);
-    const updatedPassword = await User.updateOne(
-      { email },
-      { password: hashPassword },
-      {
-        new: true,
-      }
+    await bcrypt.hash(confirmPassword, 10);
+    await db.execute(
+      "UPDATE admin SET password = password WHERE password = password",
+      [newPassword]
     );
     return successResMsg(res, 200, {
       message: `Password has been changed successfully.`,
@@ -193,7 +221,9 @@ exports.updateUserPassword = async (req, res, next) => {
   try {
     const { oldPassword, newPassword, confirmPassword } = req.body;
     const { email } = req.query;
-    const loggedUser = await User.findOne({ email });
+    const loggedUser = await db.execute("SELECT * FROM users WHERE email =?", [
+      email,
+    ]);
     const headerTokenEmail = await jwt.verify(
       req.headers.authorization.split(" ")[1],
       process.env.User_Token
@@ -203,7 +233,7 @@ exports.updateUserPassword = async (req, res, next) => {
     }
     const passwordMatch = await bcrypt.compare(
       oldPassword,
-      loggedUser.password
+      loggedUser[0][0].password
     );
     if (!passwordMatch) {
       return next(new AppError(`password is not same as old password`, 400));
@@ -211,10 +241,13 @@ exports.updateUserPassword = async (req, res, next) => {
     if (newPassword !== confirmPassword) {
       return next(new AppError(`Password do not match.`, 400));
     }
+
     const hashPassword = await bcrypt.hash(confirmPassword, 10);
-    const resetPassword = await User.updateOne(
-      { email },
-      { password: hashPassword }
+
+    await db.execute(
+      "SELECT * FROM users WHERE email =?",
+      [email],
+      [{ password: hashPassword }]
     );
     return successResMsg(res, 200, {
       message: `Password has been updated successfully.`,
@@ -225,7 +258,6 @@ exports.updateUserPassword = async (req, res, next) => {
     });
   }
 };
-
 exports.payment = async (req, res, next) => {
   try {
     const data = await axios({
@@ -253,6 +285,9 @@ exports.payment = async (req, res, next) => {
         messasge: "payment Unsuccessful",
       });
     }
+    await db.execute(
+      "UPDATE users SET userstatus = true WHERE userstatus = false"
+    );
     return res.status(200).json({
       data: data.data,
     });

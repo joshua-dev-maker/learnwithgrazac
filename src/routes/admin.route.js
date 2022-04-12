@@ -8,7 +8,7 @@ router.post("/registeradmin", Admin.addAdmin);
 router.post("/verifyemail", Admin.verifyEmail);
 router.post("/adminlogin", Admin.login);
 router.post("/adminpasswordlink", Admin.forgetPasswordLink);
-router.patch("/adminresetpassword", Admin.resetPassword);
+router.patch("/adminresetpassword", Admin.forgotPassword);
 router.patch("/adminpasswordupdate", authorize, isAdmin, Admin.updatePassword);
 
 module.exports = router;

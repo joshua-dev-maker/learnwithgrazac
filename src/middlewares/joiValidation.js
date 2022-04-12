@@ -23,15 +23,24 @@ const validatePost = joi.object({
   body: joi.string().required(),
   attachment: joi.string(),
 });
-const validateComment = joi.object({
-  productName: joi.string().required(),
-  category: joi.string().required(),
-  farmDiv: joi.string().required(),
-  Price: joi.string().required(),
+
+const cardPayment = joi.object({
+  card_number: joi.string().required().creditCard(),
+  cvv: joi.string().required().min(3).max(4),
+  expiry_month: joi.string().required().min(2).max(2),
+  expiry_year: joi.string().required().min(2).max(2),
+  currency: joi.string().required().valid("NGN"),
+  fullname: joi.string().required().min(2).max(50),
+  email: joi.string().required().email(),
+  authorization: joi.object({
+    mode: joi.string().required().valid("pin"),
+    pin: joi.string().required().min(4).max(4),
+  }),
 });
+
 module.exports = {
   validateReg,
   validateLogin,
   validatePost,
-  validateComment,
+  cardPayment,
 };

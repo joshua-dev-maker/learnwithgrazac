@@ -7,33 +7,26 @@ const cloudinaryUploadMethod = require("../utils/cloudinary");
 //An endpoint for creating post
 exports.CreatePost = async (req, res, next) => {
   try {
-    const { title, body, attachment } = req.body;
-
-    const validatedData = await validatePost.validateAsync(req.body);
-    let attachmentUpload = req.files;
-
     const urls = [];
     const files = req.files;
-    if (!files)
-      return res.status(400).json({ message: "No picture attached!" });
+    if (!files) return next(new AppError("No attachment..", 400));
+    // return res.status(400).json({ message: "No picture attached!" });
     for (const file of files) {
       const { path } = file;
-      try {
-        const newPath = await cloudinaryUploadMethod(path);
-        urls.push(newPath.res);
-      } catch (error) {
-        return res.status(500).json({
-          message: "Error uploading",
-        });
-      }
+      const newPath = await cloudinaryUploadMethod(path);
+
+      urls.push(newPath);
     }
     images = urls.map((url) => url.res);
+    const { mysqlUserId, caption, body } = req.body;
 
-    const newPost = await Post.create({
-      title,
-      body,
-      attachment: images,
-    });
+    await validatePost.validateAsync(req.body);
+    let attachment = images;
+
+    await pool.query(
+      "INSERT INTO Post (mysqlUserId,caption, body,attachment) VALUES ($1, $2, $3,$4)",
+      [mysqlUserId, caption, body, attachment]
+    );
     return successResMsg(res, 201, {
       message: "Post successfully created",
       newPost,
@@ -42,26 +35,19 @@ exports.CreatePost = async (req, res, next) => {
     return errorResMsg(res, 500, { message: error.message });
   }
 };
+
 // viewing all post in a limit of 10
 exports.viewAllPost = async (req, res, next) => {
   try {
-    const { page, limit } = req.query;
-    if (limit === null || page === null) {
-      limit = 1;
-      page = 1;
-    }
-    const viewAllPost = await Post.find()
-      .limit(limit * 10)
-      .skip((page - 1) * limit)
-      .sort({ user: -1 })
-      .exec();
-    const count = await Post.countDocuments();
+    // pagination
+    const allPost = await pool.query(
+      "SELECT * FROM post By id LIMIT 10 OFFSET (2 - 1) * 10"
+    );
+    const count = await pool.query("SELECT COUNT(*)FROM post");
     return successResMsg(res, 200, {
-      message: "Post successfully fetched",
-      viewAllPost,
-      total: viewAllPost.length,
-      totalPages: Math.ceil(count / limit),
-      currentPage: page,
+      message: "post fetch successfully",
+      count: count.rows[0],
+      allPost: allPost.rows,
     });
   } catch (error) {
     return errorResMsg(res, 500, { message: error.message });

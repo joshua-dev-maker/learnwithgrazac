@@ -1,65 +1,66 @@
-// const GitHubStrategy = require("passport-github").Strategy;
-// const passport = require("passport");
-// const User = require("../models/user.git");
-// const keys = require("./keys");
+const GitHubStrategy = require("passport-github").Strategy;
+const passport = require("passport");
+const User = require("../models/user.git");
+const keys = require("./keys");
 
-// // passport.serializeUser((user, cb) => {
-// //   cb(null, user.id);
-// // });
-
-// // passport.deserializeUser((id, cb) => {
-// //   cb(null, id);
-// // });
-// passport.serializeUser(async (User, done) => {
-//   done(null, User.id);
+// passport.serializeUser((user, cb) => {
+//   cb(null, user.id);
 // });
 
-// passport.deserializeUser((id, done) => {
-//   User.findById(id).then((User) => {
-//     done(null, User);
-//   });
+// passport.deserializeUser((id, cb) => {
+//   cb(null, id);
 // });
+passport.serializeUser(async (User, done) => {
+  done(null, User.id);
+});
 
-// passport.use(
-//   new GitHubStrategy(
-//     {
-//       clientID: process.env.GITHUB_CLIENT_ID,
-//       clientSecret: process.env.GITHUB_CLIENT_SECRET,
-//       callbackURL: "http://localhost:6111/auth/github/callback",
-//     },
-//     (accessToken, refreshToken, profile, cb) => {
-//        User.findOne({ githubID: profile.id }).then((currentUser) => {
-//       if (currentUser) {
-//         console.log("User exists" );
-//         done(null, currentUser);
+passport.deserializeUser((id, done) => {
+  User.findById(id).then((User) => {
+    done(null, User);
+  });
+});
 
-//       } else {
-//         const newUser = new User({
-//           firstName: profile.displayName.split(" ")[0],
-//           lastName: profile.displayName.split(" ")[1],
-//           githubID: profile.id,
-//           email: email.emails[0].value,
-//           isVerified: true,
-//         });
-//         console.log(profile);
+passport.use(
+  new GitHubStrategy(
+    {
+      clientID: process.env.GITHUB_CLIENT_ID,
+      clientSecret: process.env.GITHUB_CLIENT_SECRET,
+      callbackURL: "http://localhost:6111/auth/github/callback",
+    },
+    (accessToken, refreshToken, profile, cb) => {
+      User.findOne({ githubID: profile.id }).then((currentUser) => {
+        if (currentUser) {
+          console.log("User exists");
+          done(null, current);
+        } else {
+          const newUser = new User({
+            firstName: profile.displayName.split(" ")[0],
+            lastName: profile.displayName.split(" ")[1],
+            githubID: profile.id,
+            email: email.emails[0].value,
+            isVerified: true,
+          });
+          console.log(profile);
 
-//         // console.log(newUser.email)
-//         const data = {
-//           email: newUser.email,
-//           id: newUser._id,
-//           role: newUser.role,
-//         };
-//         // getting a secret token when login is successful
-//         const secret_key = process.env.SECRET;
-//         const token = jwt.sign(data, secret_key, { expiresIn: "2h" });
+          // console.log(newUser.email)
+          const data = {
+            email: newUser.email,
+            id: newUser._id,
+            role: newUser.role,
+          };
+          // getting a secret token when login is successful
+          const secret_key = process.env.SECRET;
+          const token = jwt.sign(data, secret_key, { expiresIn: "2h" });
 
-//         console.log("heyyyyyy");
-//         console.log(newUser, token);
-//         newUser.save();
-//         cb(null, newUser);
-//       }
-//     }
-//   )
+          console.log("heyyyyyy");
+          console.log(newUser, token);
+          newUser.save();
+          cb(null, newUser);
+        }
+      });
+    }
+  )
+);
 
 // const GitHubStrategy = require("passport-github").Strategy;
 // const passport = require("passport");

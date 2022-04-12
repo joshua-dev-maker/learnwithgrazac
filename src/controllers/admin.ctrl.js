@@ -1,12 +1,13 @@
-const Admin = require("../model/Admin.model");
+const Admin = require("../models/admin.model");
 const bcrypt = require("bcrypt");
 const jwt = require("jsonwebtoken");
-const nodemailer = require("nodemailer");
+const { sendMail } = require("../service/sendmail");
 const { validateReg, validateLogin } = require("../middlewares/joiValidation");
 require("dotenv").config();
 const User_Token = process.env.User_Token;
 const { successResMsg, errorResMsg } = require("../utils/appResponse");
 const AppError = require("../utils/appError");
+const db = require("../db/mySQLcon.db");
 
 //registration of new admin
 exports.addAdmin = async (req, res, next) => {
@@ -20,7 +21,17 @@ exports.addAdmin = async (req, res, next) => {
         message: "Invalid Number",
       });
     }
-    let emailExist = await Admin.findOne({ email });
+    // checking if admin already has an account
+    const [admin] = await db.execute(
+      "SELECT `email` FROM `users` WHERE `email` = ?",
+      [req.body.email]
+    );
+
+    if (admin.length > 0) {
+      return res.status(400).json({
+        message: "the email already exist",
+      });
+    }
     if (emailExist) {
       return next(new AppError("Email already exist please login", 401));
     }
@@ -44,44 +55,59 @@ exports.addAdmin = async (req, res, next) => {
       );
     }
     const hashPassword = await bcrypt.hash(validatedData.password, 10);
-    const newAdmin = await Admin.create({
-      firstName: validatedData.firstName,
-      lastName: validatedData.lastName,
-      phoneNumber: validatedData.phoneNumber,
-      email: validatedData.email,
-      password: hashPassword,
+    //creating a new admin
+    const [newAdmin] = await db.execute(
+      "INSERT INTO admin (firstName, lastName,  email, phoneNumber, password) VALUES ( ?, ?, ?, ?, ?)",
+      [firstName, lastName, email, phoneNumber, hashPassword]
+    );
+    // creating a payload
+    const data = {
+      id: newAdmin[0],
+      firstName: req.body.firstName,
+      email: req.body.email,
+      phoneNumber: req.body.phoneNumber,
+      role: req.body.role,
+    };
+    const token = await jwt.sign(data, process.env.SECRET_TOKEN, {
+      expiresIn: "2h",
     });
     let mailOptions = {
       to: newAdmin.email,
       subject: "Verify Email",
-      text: `Hi ${firstName},Pls verify your email`,
+      text: `Hi ${firstName},Pls verify your email.${token}`,
     };
 
     await sendMail(mailOptions);
     return successResMsg(res, 201, {
       message: `Hi ${firstName.toUpperCase()},Your account has been created successfully.
       Please check your email for verification.`,
-      newAdmin,
+      token,
     });
   } catch (error) {
     return errorResMsg(res, 500, { message: error.message });
   }
 };
+//verifying email for admin account
 exports.verifyEmail = async (req, res, next) => {
   try {
-    const { token } = req.query;
+    const { token } = req.headers;
     const secret_key = process.env.JWT_TOKEN;
     const decodedToken = await jwt.verify(token, secret_key);
-    const Admin = await Admin.findOne({ email: decodedToken.email }).select(
-      "isVerified"
-    );
-    if (Admin.isVerified) {
+    const admin = await db.execute("SELECT * FROM admin WHERE email = ?", [
+      {
+        email: decodedToken.email,
+      },
+    ]);
+
+    if (admin.verified) {
       return successResMsg(res, 200, {
-        message: "Admin verified already",
+        message: "admin verified already",
       });
     }
-    Admin.isVerified = true;
-    Admin.save();
+
+    await db.execute(
+      "UPDATE admin SET isVerified = true WHERE isVerified = false"
+    );
     return res.status(201).json({
       message: `Hi ${decodedToken.firstName}, Your account has been verified, 
       You can now proceed to login`,
@@ -95,34 +121,40 @@ exports.verifyEmail = async (req, res, next) => {
 // login endpoint for Admin
 exports.login = async (req, res, next) => {
   try {
-    // const { email, password } = req.body;
-    // const emailExist = await Admin.findOne({ email });
-    const validateAccess = await validateLogin.validateAsync(req.body);
-    const emailExist = await Admin.findOne({ email: validateAccess.email });
-    if (!emailExist) {
-      return next(new AppError("Email does not exist please Signup", 401));
-    }
-    if (emailExist == null) {
-      return next(new AppError("please provide a valid email address", 403));
-    }
-    let passwordExist = await bcrypt.compare(
-      validateAccess.password,
-      emailExist.password
-    );
-    if (!passwordExist) {
-      return next(new AppError("Invalid details" || "password incorrect", 401));
+    const { email, password } = req.body;
+    await validateLogin.validateAsync(req.body);
+    if (email && password) {
+      const [admin] = await db.execute("SELECT * FROM admin WHERE email =?", [
+        email,
+      ]);
+      emailexist = [admin];
+      if (emailexist.length === 0) {
+        return res.status(400).json({
+          message: "email address not found.",
+        });
+      }
+      const passMatch = await bcrypt.compareSync(password, admin[0].password);
+      if (!passMatch) {
+        return res.status(400).json({ message: "incorrect password" });
+      }
+      if (emailexist[0].isVerified === 0) {
+        return res.status(400).json({
+          message: "Unverified account.",
+        });
+      }
     }
     const loginPayload = {
-      id: emailExist.id,
-      email: emailExist.email,
-      password: emailExist.password,
-      role: emailExist.role,
+      email: emailexist[0][0].email,
+      phoneNumber: emailexist[0][0].phoneNumber,
+      role: emailexist[0][0].role,
     };
-    const token = await jwt.sign(loginPayload, User_Token, { expiresIn: "2h" });
+    const loginToken = await jwt.sign(loginPayload, User_Token, {
+      expiresIn: "1h",
+    });
     return successResMsg(res, 201, {
       message: `Hi ${emailExists.lastName.toUpperCase()} 
       ${emailExists.firstName.toUpperCase()}, Welcome Back`,
-      token,
+      loginToken,
     });
   } catch (error) {
     return errorResMsg(res, 500, { message: error.message });
@@ -132,33 +164,42 @@ exports.login = async (req, res, next) => {
 exports.forgetPasswordLink = async (req, res, next) => {
   try {
     const { email } = req.body;
-    const adminEmail = await User.findOne({ email });
-    if (!adminEmail) {
-      return next(new AppError("email not found", 404));
+    const [admin] = await db.execute("SELECT * FROM admin WHERE email =?", [
+      email,
+    ]);
+    if (admin.length === 0) {
+      return res.status(400).json({
+        message: "email address not found.",
+      });
     }
-    const data = {
+    //creating a payload
+    const verificationdata = {
       id: adminEmail._id,
       email: adminEmail.email,
       role: adminEmail.role,
     };
     // getting a secret token
     const secret_key = process.env.User_Token;
-    const token = await jwt.sign(data, secret_key, { expiresIn: "1hr" });
+    const token = await jwt.sign(verificationdata, secret_key, {
+      expiresIn: "1hr",
+    });
+    const decodedToken = await jwt.verify(token, secret_key);
     let mailOptions = {
       to: adminEmail.email,
       subject: "Reset Password",
-      text: `Hi ${adminEmail.firstName}, Reset your password with the link below.${token}`,
+      text: `Hi ${admin[0].firstName}, Reset your password with the link below.${token}`,
     };
     await sendMail(mailOptions);
     return successResMsg(res, 200, {
-      message: `Hi ${adminEmail.firstName},reset password.`,
+      message: `Hi ${admin[0].firstName},reset password.`,
+      decodedToken,
     });
   } catch (error) {
     return errorResMsg(res, 500, { message: error.message });
   }
 };
 
-exports.resetPassword = async (req, res, next) => {
+exports.forgotPassword = async (req, res, next) => {
   try {
     const { newPassword, confirmPassword } = req.body;
     const { email, token } = req.query;
@@ -171,6 +212,10 @@ exports.resetPassword = async (req, res, next) => {
     if (newPassword !== confirmPassword) {
       return next(new AppError("Password do not match.", 404));
     }
+    await bcrypt.hash(confirmPassword, 10);
+    await db.execute(
+      "UPDATE admin SET isVerified = true WHERE isVerified = true"
+    );
     const hashPassword = await bcrypt.hash(confirmPassword, 10);
     const resettedPassword = await Admin.updateOne(
       { email },
@@ -192,17 +237,19 @@ exports.updatePassword = async (req, res, next) => {
   try {
     const { oldPassword, newPassword, confirmPassword } = req.body;
     const { email } = req.query;
-    const loggedAdmin = await Admin.findOne({ email });
+    const loggedAdmin = await db.execute("SELECT * FROM admin WHERE email =?", [
+      email,
+    ]);
     const headerTokenEmail = await jwt.verify(
       req.headers.authorization.split(" ")[1],
       process.env.User_Token
     ).email;
-    if (headerTokenEmail !== loggedAdmin.email) {
+    if (headerTokenEmail !== loggedAdmin[0][0].email) {
       return next(new AppError("Forbidden", 404));
     }
     const passwordMatch = await bcrypt.compare(
       oldPassword,
-      loggedAdmin.password
+      loggedAdmin[0][0].password
     );
     // console.log(passwordMatch);
     if (!passwordMatch) {
@@ -212,9 +259,10 @@ exports.updatePassword = async (req, res, next) => {
       return next(new AppError(`Password do not match.`, 400));
     }
     const hashPassword = await bcrypt.hash(confirmPassword, 10);
-    const updatedPassword = await User.updateOne(
-      { email },
-      { password: hashPassword }
+    await db.execute(
+      "SELECT * FROM admin WHERE email =?",
+      [email],
+      [{ password: hashPassword }]
     );
     return successResMsg(res, 200, {
       message: `Password has been updated successfully.`,
