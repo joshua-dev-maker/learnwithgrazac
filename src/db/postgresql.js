@@ -5,11 +5,11 @@ dotenv.config();
 
 // creating connection:
 const pool = new Pool({
-  host: "database-2.cmct4vnvmxke.us-east-1.rds.amazonaws.com",
-  user: "learngrazac",
+  host: process.env.PostgreSQL_host,
+  user: process.env.PostgreSQL_user,
   port: process.env.PostgreSQL_port,
-  password: "123456789",
-  database: "learngrazac",
+  password: process.env.PostgreSQL_password,
+  database: process.env.PostgreSQL_data,
 });
 
 pool.query("SELECT NOW()", (err, res) => {

@@ -23,8 +23,8 @@ const dotenv = require("dotenv");
 dotenv.config();
 // creating connection
 const database = mysql.createConnection({
-  host: "learngrazac.cmct4vnvmxke.us-east-1.rds.amazonaws.com",
-  user: "admin",
+  host: process.env.mysql_host,
+  user: process.env.mysql_username,
   password: process.env.mysql_password,
   database: "learngrazac",
 });
