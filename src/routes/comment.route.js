@@ -4,7 +4,7 @@ const { isAdmin } = require("../middlewares/auth.middle");
 
 const router = express.Router();
 
-router.post("/createcomment", comment.createComment);
-router.post("/delete", isAdmin, comment.deleteComment);
+router.post("/comment", comment.createComment);
+router.delete("/comment", isAdmin, comment.deleteComment);
 
 module.exports = router;

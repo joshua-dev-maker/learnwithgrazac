@@ -46,8 +46,10 @@ exports.createComment = async (req, res, next) => {
 //
 exports.deleteComment = async (req, res, next) => {
   try {
-    await pool.query("DELETE  FROM comment WHERE id =?", [email]);
-    return res.status(200).json({});
+    await pool.query("DELETE  FROM comment WHERE id =?", [req.query.id]);
+    return res.status(200).json({
+      message: "comment deleted"
+    });
   } catch (error) {
     console.log(error.message);
     return res.status(500).json({

@@ -5,6 +5,6 @@ const { allow } = require("../middlewares/auth.middle");
 const router = express.Router();
 
 router.post("/createpost", allow, Post.CreatePost);
-router.post("/veiwpost", allow, Post.viewAllPost);
+router.get("/veiwpost", allow, Post.viewAllPost);
 
 module.exports = router;

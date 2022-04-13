@@ -1,4 +1,4 @@
-const Post = require("../models/post.model");
+// const Post = require("../models/post.model");
 const { pool } = require("pg");
 const { successResMsg, errorResMsg } = require("../utils/appResponse");
 const AppError = require("../utils/appError");

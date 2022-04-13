@@ -259,6 +259,7 @@ exports.updateUserPassword = async (req, res, next) => {
   }
 };
 exports.payment = async (req, res, next) => {
+  const { email, phoneNumber, name } = req.body;
   try {
     const data = await axios({
       method: "post",
@@ -272,9 +273,9 @@ exports.payment = async (req, res, next) => {
         currency: "NGN",
         redirect_url: "https://localhost:6111/",
         customer: {
-          email: "ojojoshuat@gmail.com",
-          phonenumber: "0812344528",
-          name: "Yemi Desola",
+          email,
+          phonenumber,
+          name,
         },
       },
     });
