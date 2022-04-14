@@ -14,17 +14,11 @@ exports.addAdmin = async (req, res, next) => {
   try {
     const { firstName, lastName, phoneNumber, email, password } = req.body;
     const validatedData = await validateReg.validateAsync(req.body);
-    const numToString = phoneNumber.toString().length;
-    // console.log(numToString);
-    if (numToString < 10 || numToString > 13) {
-      return res.status(404).json({
-        message: "Invalid Number",
-      });
-    }
+
     // checking if admin already has an account
     const [admin] = await db.execute(
-      "SELECT `email` FROM `users` WHERE `email` = ?",
-      [req.body.email]
+      "SELECT `email` FROM `admins` WHERE `email` = ?",
+      [{ email: validatedData.email }]
     );
 
     if (admin.length > 0) {
@@ -32,18 +26,9 @@ exports.addAdmin = async (req, res, next) => {
         message: "the email already exist",
       });
     }
-    if (emailExist) {
-      return next(new AppError("Email already exist please login", 401));
-    }
+
     // a check for password length
-    if (password.length < 8) {
-      return next(
-        new AppError(
-          "Password must be atleast 8 letters" || "password too weak",
-          401
-        )
-      );
-    }
+
     if (
       validatedData.password.includes(firstName) ||
       validatedData.password.includes(lastName) ||
@@ -57,7 +42,7 @@ exports.addAdmin = async (req, res, next) => {
     const hashPassword = await bcrypt.hash(validatedData.password, 10);
     //creating a new admin
     const [newAdmin] = await db.execute(
-      "INSERT INTO admin (firstName, lastName,  email, phoneNumber, password) VALUES ( ?, ?, ?, ?, ?)",
+      "INSERT INTO admins (firstName, lastName,  email, phoneNumber, password) VALUES ( ?, ?, ?, ?, ?)",
       [firstName, lastName, email, phoneNumber, hashPassword]
     );
     // creating a payload
@@ -68,7 +53,7 @@ exports.addAdmin = async (req, res, next) => {
       phoneNumber: req.body.phoneNumber,
       role: req.body.role,
     };
-    const token = await jwt.sign(data, process.env.SECRET_TOKEN, {
+    const token = await jwt.sign(data, process.env.User_Token, {
       expiresIn: "2h",
     });
     let mailOptions = {
@@ -91,22 +76,22 @@ exports.addAdmin = async (req, res, next) => {
 exports.verifyEmail = async (req, res, next) => {
   try {
     const { token } = req.headers;
-    const secret_key = process.env.JWT_TOKEN;
+    const secret_key = process.env.User_Token;
     const decodedToken = await jwt.verify(token, secret_key);
-    const admin = await db.execute("SELECT * FROM admin WHERE email = ?", [
+    const newAdmin = await db.execute("SELECT * FROM admins WHERE email = ?", [
       {
         email: decodedToken.email,
       },
     ]);
 
-    if (admin.verified) {
+    if (newAdmin.verified) {
       return successResMsg(res, 200, {
         message: "admin verified already",
       });
     }
 
     await db.execute(
-      "UPDATE admin SET isVerified = true WHERE isVerified = false"
+      "UPDATE admins SET isVerified = true WHERE isVerified = false"
     );
     return res.status(201).json({
       message: `Hi ${decodedToken.firstName}, Your account has been verified, 
@@ -124,25 +109,25 @@ exports.login = async (req, res, next) => {
     const { email, password } = req.body;
     await validateLogin.validateAsync(req.body);
     if (email && password) {
-      const [admin] = await db.execute("SELECT * FROM admin WHERE email =?", [
+      const [admin] = await db.execute("SELECT * FROM admins WHERE email =?", [
         email,
       ]);
       emailexist = [admin];
-      if (emailexist.length === 0) {
-        return res.status(400).json({
-          message: "email address not found.",
-        });
-      }
-      const passMatch = await bcrypt.compareSync(password, admin[0].password);
-      if (!passMatch) {
-        return res.status(400).json({ message: "incorrect password" });
-      }
-      if (emailexist[0].isVerified === 0) {
-        return res.status(400).json({
-          message: "Unverified account.",
-        });
-      }
     }
+    // if (emailexist.length === 0) {
+    //   return res.status(400).json({
+    //     message: "email address not found.",
+    //   });
+    // }
+    // const passMatch = await bcrypt.compareSync(password, admin[0].password);
+    // if (!passMatch) {
+    //   return res.status(400).json({ message: "incorrect password" });
+    // }
+    // if (emailexist[0].isVerified === 0) {
+    //   return res.status(400).json({
+    //     message: "Unverified account.",
+    //   });
+    // }
     const loginPayload = {
       email: emailexist[0][0].email,
       phoneNumber: emailexist[0][0].phoneNumber,

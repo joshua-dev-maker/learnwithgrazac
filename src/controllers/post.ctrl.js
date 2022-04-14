@@ -7,8 +7,10 @@ const cloudinaryUploadMethod = require("../utils/cloudinary");
 //An endpoint for creating post
 exports.CreatePost = async (req, res, next) => {
   try {
+    const { mysqlUserId, caption, body, attachment } = req.body;
     const urls = [];
     const files = req.files;
+    console.log(files);
     if (!files) return next(new AppError("No attachment..", 400));
     // return res.status(400).json({ message: "No picture attached!" });
     for (const file of files) {
@@ -18,14 +20,12 @@ exports.CreatePost = async (req, res, next) => {
       urls.push(newPath);
     }
     images = urls.map((url) => url.res);
-    const { mysqlUserId, caption, body } = req.body;
 
     await validatePost.validateAsync(req.body);
-    let attachment = images;
 
     await pool.query(
       "INSERT INTO Post (mysqlUserId,caption, body,attachment) VALUES ($1, $2, $3,$4)",
-      [mysqlUserId, caption, body, attachment]
+      [mysqlUserId, caption, body, images]
     );
     return successResMsg(res, 201, {
       message: "Post successfully created",

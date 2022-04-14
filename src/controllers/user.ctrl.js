@@ -1,6 +1,7 @@
 const User = require("../models/user.model");
 const bcrypt = require("bcrypt");
 const { sendMail } = require("../service/sendmail");
+const jwt = require("jsonwebtoken");
 const passport = require("passport");
 const axios = require("axios");
 require("dotenv").config();
@@ -46,7 +47,9 @@ exports.register = async (req, res, next) => {
       );
     }
     // hashing the user password
-    const hashPassword = await bcrypt.hash(validatedData.password, 10);
+    const salt = bcrypt.genSaltSync(10);
+    const hashPassword = bcrypt.hashSync(validatedData.password, salt);
+    // const hashPassword = await bcrypt.hash(validatedData.password, 10);
     // console.log(hashPassword)
     const [newUser] = await db.execute(
       "INSERT INTO users (firstName, lastName,  email, phoneNumber, password) VALUES ( ?, ?, ?, ?, ?)",
@@ -110,48 +113,101 @@ exports.verifyUserEmail = async (req, res, next) => {
 };
 
 // login endpoint for users
+// exports.login = async (req, res, next) => {
+//   try {
+//     const { email, password } = req.body;
+//     await validateLogin.validateAsync(req.body);
+//     if (email && password) {
+//       const user = await db.execute(
+//         "SELECT password FROM users WHERE email =?",
+//         [email]
+//       );
+
+//       if (user.length === 0) {
+//         return res.status(400).json({
+//           message: "email address not found.",
+//         });
+//       }
+//       console.log(user[0][0]);
+//       console.log(password);
+//       console.log(await bcrypt.compare(user[0][0].password, password));
+//       console.log();
+//       let hashpass = user[0][0].password;
+//       const passMatch = await bcrypt.compare(password, hashpass);
+//       if (!passMatch) {
+//         return res.status(400).json({ message: "incorrect password" });
+//       }
+//       if (emailexist[0].isVerified === 0) {
+//         return res.status(400).json({
+//           message: "Unverified account.",
+//         });
+//       }
+//     }
+
+//     const loginPayload = {
+//       email: emailexist[0][0].email,
+//       phoneNumber: emailexist[0][0].phoneNumber,
+//       role: emailexist[0][0].role,
+//     };
+//     const loginToken = await jwt.sign(loginPayload, User_Token, {
+//       expiresIn: "1h",
+//     });
+//     return successResMsg(res, 201, {
+//       message: `Hi ${emailExists.lastName.toUpperCase()}
+//       ${emailExists.firstName.toUpperCase()}, Welcome Back`,
+//       loginToken,
+//     });
+//   } catch (error) {
+//     return errorResMsg(res, 500, { message: error.message });
+//   }
+// };
+
+// / logging in a user
 exports.login = async (req, res, next) => {
   try {
     const { email, password } = req.body;
-    await validateLogin.validateAsync(req.body);
+    // validate with joi
+    // await validateLogin.validateAsync(req.body);
+    //  checking email and password match
     if (email && password) {
-      const [user] = await db.execute("SELECT * FROM user WHERE email =?", [
+      const [user] = await db.execute("SELECT * FROM users WHERE email =?", [
         email,
       ]);
-      emailexist = [user];
-      if (emailexist.length === 0) {
+      if (user.length === 0) {
         return res.status(400).json({
           message: "email address not found.",
         });
       }
-      const passMatch = await bcrypt.compareSync(password, user[0].password);
+      console.log(password, user[0].password);
+      const passMatch = await bcrypt.compare(password, user[0].password);
+      console.log(passMatch);
       if (!passMatch) {
         return res.status(400).json({ message: "incorrect password" });
       }
-      if (emailexist[0].isVerified === 0) {
+      if (user[0].isVerified === 0) {
         return res.status(400).json({
           message: "Unverified account.",
         });
       }
     }
-    const loginPayload = {
-      email: emailexist[0][0].email,
-      phoneNumber: emailexist[0][0].phoneNumber,
-      role: emailexist[0][0].role,
+    // creating a payload
+    const data = {
+      id: email[0].id,
+      email: email.email,
+      role: email.role,
     };
-    const loginToken = await jwt.sign(loginPayload, User_Token, {
+
+    const token = await jwt.sign(data, process.env.User_Token, {
       expiresIn: "1h",
     });
-    return successResMsg(res, 201, {
-      message: `Hi ${emailExists.lastName.toUpperCase()} 
-      ${emailExists.firstName.toUpperCase()}, Welcome Back`,
-      loginToken,
+    return successResMsg(res, 200, {
+      message: "User logged in sucessfully",
+      token,
     });
   } catch (error) {
     return errorResMsg(res, 500, { message: error.message });
   }
 };
-
 exports.forgetUserPasswordLink = async (req, res, next) => {
   try {
     const { email } = req.body;

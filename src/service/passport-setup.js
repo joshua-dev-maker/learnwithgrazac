@@ -3,22 +3,22 @@ const passport = require("passport");
 const User = require("../models/user.git");
 const keys = require("./keys");
 
-// passport.serializeUser((user, cb) => {
-//   cb(null, user.id);
-// });
-
-// passport.deserializeUser((id, cb) => {
-//   cb(null, id);
-// });
-passport.serializeUser(async (User, done) => {
-  done(null, User.id);
+passport.serializeUser((user, cb) => {
+  cb(null, user.id);
 });
 
-passport.deserializeUser((id, done) => {
-  User.findById(id).then((User) => {
-    done(null, User);
-  });
+passport.deserializeUser((id, cb) => {
+  cb(null, id);
 });
+// passport.serializeUser(async (User, done) => {
+//   done(null, User.id);
+// });
+
+// passport.deserializeUser((id, done) => {
+//   User.findById(id).then((User) => {
+//     done(null, User);
+//   });
+// });
 
 passport.use(
   new GitHubStrategy(

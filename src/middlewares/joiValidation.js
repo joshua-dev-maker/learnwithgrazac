@@ -3,7 +3,7 @@ const joi = require("joi");
 const validateReg = joi.object({
   firstName: joi.string().required(),
   lastName: joi.string().required(),
-  phoneNumber: joi.number().required(),
+  phoneNumber: joi.string().required().min(10).max(13),
   email: joi.string().email({
     minDomainSegments: 2,
     tlds: { allow: ["com", "net", "org", "ng"] },

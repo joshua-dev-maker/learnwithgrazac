@@ -9,12 +9,12 @@ cloudinary.v2.config({
 
 const cloudinaryUploadMethod = async (file) => {
   return new Promise((resolve, reject) => {
-    cloudinary.uploader.upload(file, (err, response) => {
+    cloudinary.uploader.upload(file, (err, res) => {
       if (err) {
         reject({ err });
       }
       resolve({
-        res: response.secure_url,
+        res: res.secure_url,
       });
     });
   });
