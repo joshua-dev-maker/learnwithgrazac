@@ -137,11 +137,11 @@ exports.login = async (req, res, next) => {
       expiresIn: "1h",
     });
     return successResMsg(res, 201, {
-      message: `Hi ${emailExists.lastName.toUpperCase()} 
-      ${emailExists.firstName.toUpperCase()}, Welcome Back`,
+      message: "Welcome Back",
       loginToken,
     });
   } catch (error) {
+    console.log(error);
     return errorResMsg(res, 500, { message: error.message });
   }
 };

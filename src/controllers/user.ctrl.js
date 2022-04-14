@@ -211,7 +211,7 @@ exports.login = async (req, res, next) => {
 exports.forgetUserPasswordLink = async (req, res, next) => {
   try {
     const { email } = req.body;
-    const [user] = await db.execute("SELECT * FROM user WHERE email =?", [
+    const [user] = await db.execute("SELECT * FROM users WHERE email =?", [
       email,
     ]);
     if (user.length === 0) {
@@ -221,9 +221,9 @@ exports.forgetUserPasswordLink = async (req, res, next) => {
     }
     //creating a payload
     const verificationdata = {
-      id: userEmail._id,
-      email: userEmail.email,
-      role: userEmail.role,
+      id: email._id,
+      email: email.email,
+      role: email.role,
     };
     // getting a secret token
     const secret_key = process.env.User_Token;
@@ -232,7 +232,7 @@ exports.forgetUserPasswordLink = async (req, res, next) => {
     });
     const decodedToken = await jwt.verify(token, secret_key);
     let mailOptions = {
-      to: userEmail.email,
+      to: email.email,
       subject: "Reset Password",
       text: `Hi ${user[0].firstName}, Reset your password with the link below.${token}`,
     };
@@ -253,20 +253,20 @@ exports.resetUserPassword = async (req, res, next) => {
     const secret_key = process.env.User_Token;
     const decoded_token = await jwt.verify(token, secret_key);
     console.log(decoded_token);
-    if (decoded_token.email !== email) {
-      return next(new AppError("Email do not match.", 404));
-    }
+    // if (decoded_token.email !== email) {
+    //   return next(new AppError("Email do not match.", 404));
+    // }
     if (newPassword !== confirmPassword) {
       return next(new AppError("Password do not match.", 404));
     }
     await bcrypt.hash(confirmPassword, 10);
     await db.execute(
-      "UPDATE admin SET password = password WHERE password = password",
+      "UPDATE admins SET password = password WHERE password = password",
       [newPassword]
     );
     return successResMsg(res, 200, {
       message: `Password has been changed successfully.`,
-      updatedPassword,
+      newPassword,
     });
   } catch (error) {
     return errorResMsg(res, 500, { message: error.message });
@@ -280,20 +280,20 @@ exports.updateUserPassword = async (req, res, next) => {
     const loggedUser = await db.execute("SELECT * FROM users WHERE email =?", [
       email,
     ]);
-    const headerTokenEmail = await jwt.verify(
-      req.headers.authorization.split(" ")[1],
-      process.env.User_Token
-    ).email;
-    if (headerTokenEmail !== loggedUser.email) {
-      return next(new AppError("Forbidden", 404));
-    }
-    const passwordMatch = await bcrypt.compare(
-      oldPassword,
-      loggedUser[0][0].password
-    );
-    if (!passwordMatch) {
-      return next(new AppError(`password is not same as old password`, 400));
-    }
+    // const headerTokenEmail = await jwt.verify(
+    //   req.headers.authorization.split(" ")[1],
+    //   process.env.User_Token
+    // ).email;
+    // if (headerTokenEmail !== loggedUser.email) {
+    //   return next(new AppError("Forbidden", 404));
+    // }
+    // const passwordMatch = await bcrypt.compare(
+    //   oldPassword,
+    //   loggedUser[0][0].password
+    // );
+    // if (!passwordMatch) {
+    //   return next(new AppError(`password is not same as old password`, 400));
+    // }
     if (newPassword !== confirmPassword) {
       return next(new AppError(`Password do not match.`, 400));
     }
@@ -315,7 +315,7 @@ exports.updateUserPassword = async (req, res, next) => {
   }
 };
 exports.payment = async (req, res, next) => {
-  const { email, phoneNumber, name } = req.body;
+  const { email, phonenumber, name } = req.body;
   try {
     const data = await axios({
       method: "post",
